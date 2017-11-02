@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Service Test</string>
+
+    <string name="action_ok">OK</string>
+    <string name="permission_alert_dialog_title">Requesting SMS permission</string>
+    <string name="permission_dialog_message">The app will now request your permission to send and read SMS related services.</string>
+</resources>
