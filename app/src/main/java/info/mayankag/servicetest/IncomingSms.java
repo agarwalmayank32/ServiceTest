@@ -9,6 +9,9 @@ import android.os.Bundle;
 import android.telephony.SmsMessage;
 import android.util.Log;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -18,12 +21,16 @@ import okhttp3.Response;
 
 public class IncomingSms extends BroadcastReceiver {
 
+    Context context;
+
     public void onReceive(Context context, Intent intent) {
         // Retrieves a map of extended data from the intent.
         final Bundle bundle = intent.getExtras();
         try {
 
             if (bundle != null) {
+
+                this.context = context;
 
                 final Object[] pdusObj = (Object[]) bundle.get("pdus");
 
@@ -37,8 +44,9 @@ public class IncomingSms extends BroadcastReceiver {
 
                         Log.i("SmsReceiver", "senderNum: " + senderNum + "; message: " + message);
 
-                        //new MakeRequestTask().execute(message);
-                        Util.sendNotification(message, context);
+                        new MakeRequestTask().execute(message);
+
+                        //Util.sendNotification(message, context);
                     }
                 }
             }
@@ -78,16 +86,10 @@ public class IncomingSms extends BroadcastReceiver {
 
         @Override
         protected void onPostExecute(Object o) {
-            /*if (o != null)
+            if (o != null)
             {
-                try {
-                    JSONObject response = new JSONObject(o.toString());
-                    String status = response.getString("status");
-
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            }*/
+                Util.sendNotification(Util.getResult(o.toString()), context);
+            }
         }
     }
 }

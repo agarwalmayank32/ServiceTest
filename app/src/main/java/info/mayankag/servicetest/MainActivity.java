@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
             @Override
             public void onSmsReceived(Sms sms) {
-                Util.sendNotification(sms.toString(), MainActivity.this);
+                //Util.sendNotification(sms.toString(), MainActivity.this);
             }
         });
     }
@@ -145,6 +145,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             chooseAccount();
         } else if (! Util.isDeviceOnline(MainActivity.this)) {
             Toast.makeText(MainActivity.this,"No network connection available.",Toast.LENGTH_SHORT).show();
+        }
+        else {
+            Toast.makeText(MainActivity.this,"Email Service Started",Toast.LENGTH_SHORT).show();
         }
     }
 

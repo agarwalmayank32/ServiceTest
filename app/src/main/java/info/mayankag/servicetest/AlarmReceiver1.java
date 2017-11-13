@@ -29,8 +29,6 @@ public class AlarmReceiver1 extends WakefulBroadcastReceiver {
         Intent intent = new Intent(context, AlarmReceiver1.class);
         alarmIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
 
-        Toast.makeText(context,"Email Alarm Started",Toast.LENGTH_SHORT).show();
-
         alarmMgr.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, 5*60*1000, 5*60*1000, alarmIntent);
 
         ComponentName receiver = new ComponentName(context, BootReciever.class);
@@ -44,7 +42,7 @@ public class AlarmReceiver1 extends WakefulBroadcastReceiver {
             alarmMgr.cancel(alarmIntent);
         }
 
-        Toast.makeText(context,"Email Alarm Stopped",Toast.LENGTH_SHORT).show();
+        Toast.makeText(context,"Email Service Stopped",Toast.LENGTH_SHORT).show();
 
         ComponentName receiver = new ComponentName(context, BootReciever.class);
         PackageManager pm = context.getPackageManager();

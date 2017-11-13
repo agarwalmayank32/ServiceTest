@@ -11,6 +11,10 @@ import android.net.NetworkInfo;
 import android.preference.PreferenceManager;
 import android.support.v4.app.NotificationCompat;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 class Util {
     static String NOTIFICATION_ID = "notification_id";
 
@@ -47,5 +51,125 @@ class Util {
         SharedPreferences.Editor editor = settings.edit();
         editor.putString(NOTIFICATION_ID, String.valueOf(notification_id));
         editor.apply();
+    }
+
+    static String getResult(String object)
+    {
+        try
+        {
+            JSONObject res = new JSONObject(object);
+
+            if(!res.has("error"))
+            {
+                String message="";
+
+                JSONObject entities = new JSONObject(res.getString("entities"));
+
+                String dateTime = getDateTime(entities);
+
+                if(dateTime!=null)
+                {
+                    String date = dateTime.substring(0,10);
+                    String time = dateTime.substring(11,16);
+
+                    String location = getLocation(entities);
+                    String duration = getDuration(entities);
+
+                    String event = getEvent(entities);
+
+                    if(event!=null)
+                    {
+                        message+= event;
+                    }
+
+                    message+= "\n"+"Date: "+date;
+                    message+= "\n"+"Time: "+time;
+
+                    if(duration!=null)
+                    {
+                        message+= "\n"+duration;
+                    }
+
+                    if(location!=null)
+                    {
+                        message+= "\n"+location;
+                    }
+
+                    return message;
+
+                }
+            }
+        }
+        catch(JSONException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private static String getDateTime(JSONObject entities) throws JSONException {
+        if(entities.has("datetime"))
+        {
+            JSONArray datetime = entities.getJSONArray("datetime");
+            JSONObject result = datetime.getJSONObject(0);
+            if(result.has("from"))
+            {
+                JSONObject from = result.getJSONObject("from");
+                return from.getString("value");
+            }
+            else
+            {
+                return result.getString("value");
+            }
+        }
+        return null;
+    }
+
+    private static String getLocation(JSONObject entities) throws JSONException {
+        if(entities.has("location"))
+        {
+            JSONArray location = entities.getJSONArray("location");
+            return "Location: "+location.getJSONObject(0).getString("value");
+        }
+        return null;
+    }
+
+    private static String getDuration(JSONObject entities) throws JSONException {
+        if(entities.has("duration"))
+        {
+            JSONArray duration = entities.getJSONArray("duration");
+            String value = duration.getJSONObject(0).getString("value");
+            String unit = duration.getJSONObject(0).getString("unit");
+            return "Duration: "+value+" "+unit;
+        }
+        return null;
+    }
+
+    private static String getEvent(JSONObject entities) throws JSONException
+    {
+        if(entities.has("message_body") && entities.has("agenda_entry"))
+        {
+            JSONArray agenda_entry = entities.getJSONArray("agenda_entry");
+            String ae = agenda_entry.getJSONObject(0).getString("value");
+
+            JSONArray message_body = entities.getJSONArray("message_body");
+            String mb = message_body.getJSONObject(0).getString("value");
+
+            String t = String.valueOf(mb.charAt(0)).toUpperCase();
+
+            return "Title: "+ae+" \nDescription: "+t+mb.substring(1);
+
+        }
+        else if(entities.has("message_body"))
+        {
+            JSONArray message_body = entities.getJSONArray("message_body");
+            return "Description: "+message_body.getJSONObject(0).getString("value");
+        }
+        else if(entities.has("agenda_entry"))
+        {
+            JSONArray agenda_entry = entities.getJSONArray("agenda_entry");
+            return "Title: "+agenda_entry.getJSONObject(0).getString("value");
+        }
+        return null;
     }
 }

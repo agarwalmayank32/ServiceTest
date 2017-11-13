@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -32,6 +31,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class SchedulingService1 extends IntentService{
 
@@ -44,14 +45,6 @@ public class SchedulingService1 extends IntentService{
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[ ] SCOPES = { GmailScopes.GMAIL_LABELS, GmailScopes.GMAIL_READONLY};
     Context context;
-
-    /*@Override
-    public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
-
-        stopSelf();
-
-        return START_NOT_STICKY;
-    }*/
 
     @Override
     protected void onHandleIntent(Intent intent) {
@@ -117,6 +110,7 @@ public class SchedulingService1 extends IntentService{
 
                 for (int i=0;i<output.size();i++)
                 {
+                    Toast.makeText(context,output.get(i),Toast.LENGTH_LONG).show();
                     Util.sendNotification(output.get(i),context);
                 }
             }
@@ -127,7 +121,7 @@ public class SchedulingService1 extends IntentService{
         protected void onCancelled() {
             if (mLastError != null) {
                 //Toast.makeText(MainActivity.this,"The following error occurred:\n" + mLastError.getMessage(),Toast.LENGTH_SHORT).show();
-                Log.d("errs","The following error occurred:\n" + mLastError.getMessage());
+                Log.d(" errs","The following error occurred:\n" + mLastError.getMessage());
             } else {
                 Toast.makeText(context, "Request cancelled.", Toast.LENGTH_SHORT).show();
             }
@@ -159,25 +153,21 @@ public class SchedulingService1 extends IntentService{
                             byte[] bodyBytes = Base64.decodeBase64(message2.getPayload().getParts().get(0).getBody().getData().trim()); // get body
                             String body = new String(bodyBytes, "UTF-8");
 
-                            /*Request.Builder builder = new Request.Builder();
+                            Request.Builder builder = new Request.Builder();
                             builder.url(url+body).header("Authorization" , "Bearer 6PUGR2FU2TVKLF7MGAGITU6KWN4XLT52");
                             Request request = builder.build();
 
                             try {
                                 Response response = client.newCall(request).execute();
                                 //noinspection ConstantConditions
+
                                 String object = response.body().string();
+
+                                Log.d("errsss",object);
 
                                 if(object != null)
                                 {
-                                    try
-                                    {
-                                        JSONObject res = new JSONObject(object);
-                                        messageList.add(res.toString());
-                                    }
-                                    catch(JSONException e) {
-                                        e.printStackTrace();
-                                    }
+                                    messageList.add(Util.getResult(object));
                                 }
                                 else
                                 {
@@ -185,15 +175,19 @@ public class SchedulingService1 extends IntentService{
                                 }
                             } catch (Exception e) {
                                 e.printStackTrace();
-                            }*/
 
-                            messageList.add(body);
+                                Log.d("errss",e.toString());
+                            }
+
+                            //messageList.add(body);
                             Log.d("bb", body);
                         }
                     }
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
+
+                Log.d("errsss",e.toString());
             }
             return messageList;
         }
