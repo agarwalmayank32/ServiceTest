@@ -1,80 +1,93 @@
 package info.mayankag.servicetest;
 
-import android.app.NotificationManager;
-import android.app.PendingIntent;
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v4.app.NotificationCompat;
-import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 import android.util.Log;
-import android.widget.Toast;
+
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class IncomingSms extends BroadcastReceiver {
 
-    public static final int NOTIFICATION_ID = 1;
-
-    // Get the object of SmsManager
-    final SmsManager sms = SmsManager.getDefault();
-
     public void onReceive(Context context, Intent intent) {
-
-
-
         // Retrieves a map of extended data from the intent.
         final Bundle bundle = intent.getExtras();
-
         try {
 
             if (bundle != null) {
 
                 final Object[] pdusObj = (Object[]) bundle.get("pdus");
 
-                for (int i = 0; i < pdusObj.length; i++) {
+                if (pdusObj != null) {
+                    for (Object aPdusObj : pdusObj) {
 
-                    SmsMessage currentMessage = SmsMessage.createFromPdu((byte[]) pdusObj[i]);
-                    String phoneNumber = currentMessage.getDisplayOriginatingAddress();
+                        SmsMessage currentMessage = SmsMessage.createFromPdu((byte[]) aPdusObj);
 
-                    String senderNum = phoneNumber;
-                    String message = currentMessage.getDisplayMessageBody();
+                        String senderNum = currentMessage.getDisplayOriginatingAddress();
+                        String message = currentMessage.getDisplayMessageBody();
 
-                    Log.i("SmsReceiver", "senderNum: "+ senderNum + "; message: " + message);
+                        Log.i("SmsReceiver", "senderNum: " + senderNum + "; message: " + message);
 
-
-                    // Show Alert
-                    int duration = Toast.LENGTH_LONG;
-                    Toast toast = Toast.makeText(context, "senderNum: "+ senderNum + ", message: " + message, duration);
-                    //toast.show();
-                    //sendNotification(context, message);
-
-
-                } // end for loop
-            } // bundle is null
-
+                        //new MakeRequestTask().execute(message);
+                        Util.sendNotification(message, context);
+                    }
+                }
+            }
         } catch (Exception e) {
             Log.e("SmsReceiver", "Exception smsReceiver" +e);
-
         }
     }
 
-    private void sendNotification(Context context , String msg) {
+    private class MakeRequestTask extends AsyncTask<Object, Object, Object> {
+        String url = "https://api.wit.ai/message?v=11/11/2017&q=";
+        final OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .writeTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .build();
 
-        NotificationManager mNotificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        @Override
+        protected void onPreExecute() {
+        }
 
-        PendingIntent contentIntent = PendingIntent.getActivity(context, 0, new Intent(context, TestActivity.class), 0);
+        @Override
+        protected String doInBackground(Object[] params) {
 
-        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(context)
-                .setSmallIcon(R.drawable.regular)
-                .setContentTitle("From Appiva Application")
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(msg))
-                .setContentText(msg);
+            Request.Builder builder = new Request.Builder();
+            builder.url(url+params[0]).header("Authorization" , "Bearer 6PUGR2FU2TVKLF7MGAGITU6KWN4XLT52");
+            Request request = builder.build();
+            try {
+                Response response = client.newCall(request).execute();
+                //noinspection ConstantConditions
+                return response.body().string();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
 
-        mBuilder.setContentIntent(contentIntent);
-        mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build());
+        @Override
+        protected void onPostExecute(Object o) {
+            /*if (o != null)
+            {
+                try {
+                    JSONObject response = new JSONObject(o.toString());
+                    String status = response.getString("status");
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }*/
+        }
     }
-
-
-
 }

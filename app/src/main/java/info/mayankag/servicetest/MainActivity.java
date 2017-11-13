@@ -1,169 +1,117 @@
 package info.mayankag.servicetest;
 
 import android.Manifest;
+import android.accounts.AccountManager;
 import android.app.AlertDialog;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
+import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.api.client.util.ExponentialBackOff;
+import com.google.api.services.gmail.GmailScopes;
 import com.tuenti.smsradar.Sms;
 import com.tuenti.smsradar.SmsListener;
 import com.tuenti.smsradar.SmsRadar;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+import java.util.Arrays;
+import java.util.List;
 
-    //button objects
-    private Button buttonStart;
-    private Button buttonStop;
+import pub.devrel.easypermissions.AfterPermissionGranted;
+import pub.devrel.easypermissions.EasyPermissions;
 
-    //AlarmReciever1 alarm = new AlarmReciever1();
-
-    public static final int NOTIFICATION_ID = 1;
-
-    //public static final int MY_PERMISSIONS_REQUEST_READ_SMS = 123;
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, EasyPermissions.PermissionCallbacks {
 
     private static final String TAG = "MainActivity";
     private static final int SMS_PERMISSION_CODE = 0;
+
+    private GoogleAccountCredential mCredential;
+
+    private static final int REQUEST_ACCOUNT_PICKER = 1000;
+    private static final int REQUEST_AUTHORIZATION = 1001;
+    private static final int REQUEST_GOOGLE_PLAY_SERVICES = 1002;
+    private static final int REQUEST_PERMISSION_GET_ACCOUNTS = 1003;
+
+    private static final String PREF_ACCOUNT_NAME = "accountName";
+    private static final String[ ] SCOPES = { GmailScopes.GMAIL_LABELS, GmailScopes.GMAIL_READONLY};
+
+    AlarmReceiver1 alarm;
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        alarm = new AlarmReceiver1();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //checkPermission();
+        mCredential = GoogleAccountCredential.usingOAuth2(
+                getApplicationContext(), Arrays.asList(SCOPES))
+                .setBackOff(new ExponentialBackOff());
 
         if (!hasReadSmsPermission()) {
             showRequestPermissionsInfoAlertDialog();
         }
 
-        //getting buttons from xml
-        buttonStart = (Button) findViewById(R.id.buttonStart);
-        buttonStop = (Button) findViewById(R.id.buttonStop);
-
-        //attaching onclicklistener to buttons
-        buttonStart.setOnClickListener(this);
-        buttonStop.setOnClickListener(this);
+        findViewById(R.id.buttonStart).setOnClickListener(this);
+        findViewById(R.id.buttonStop).setOnClickListener(this);
     }
 
     @Override
     public void onClick(View view) {
-        if (view == buttonStart) {
-            //starting service
+        if (view == findViewById(R.id.buttonStart)) {
 
-            //alarm.setAlarm(this);
+            SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString(Util.NOTIFICATION_ID, String.valueOf(0x10));
+            editor.apply();
+
+            getResultsFromApi();
+            alarm.setAlarm(MainActivity.this);
             initializeSmsRadarService();
 
-        } else if (view == buttonStop) {
-            //stopping service
-
-            //alarm.cancelAlarm(this);
+        } else if (view == findViewById(R.id.buttonStop)) {
+            alarm.cancelAlarm(MainActivity.this);
             stopSmsRadarService();
         }
     }
 
-    private void initializeSmsRadarService() {
-
+    private void initializeSmsRadarService()
+    {
         Toast.makeText(this,"Sms Service Started",Toast.LENGTH_LONG).show();
-
         SmsRadar.initializeSmsRadarService(this, new SmsListener() {
             @Override
             public void onSmsSent(Sms sms) {
-                showSmsToast(sms);
             }
-
             @Override
             public void onSmsReceived(Sms sms) {
-                showSmsToast(sms);
-
-                NotificationManager mNotificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-
-                PendingIntent contentIntent = PendingIntent.getActivity(MainActivity.this, 0, new Intent(MainActivity.this, TestActivity.class), 0);
-
-                NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(MainActivity.this)
-                        .setSmallIcon(R.drawable.regular)
-                        .setContentTitle("From Appiva Application")
-                        .setStyle(new NotificationCompat.BigTextStyle().bigText(sms.toString()))
-                        .setContentText(sms.toString());
-
-                mBuilder.setContentIntent(contentIntent);
-
-                mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build());
-
+                Util.sendNotification(sms.toString(), MainActivity.this);
             }
         });
     }
 
     private void stopSmsRadarService() {
-
         Toast.makeText(this,"Sms Service Stopped",Toast.LENGTH_LONG).show();
         SmsRadar.stopSmsRadarService(this);
     }
 
-    private void showSmsToast(Sms sms) {
-        Toast.makeText(this, sms.toString(), Toast.LENGTH_LONG).show();
-    }
-
-    /*@TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    public boolean checkPermission()
-    {
-        int currentAPIVersion = Build.VERSION.SDK_INT;
-        if(currentAPIVersion>=android.os.Build.VERSION_CODES.M)
-        {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECEIVE_SMS)) {
-                    AlertDialog.Builder alertBuilder = new AlertDialog.Builder(this);
-                    alertBuilder.setCancelable(true);
-                    alertBuilder.setTitle("Permission necessary");
-                    alertBuilder.setMessage("Reading SMS is important to set the task automatically!!!");
-                    alertBuilder.setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
-                        @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-                        public void onClick(DialogInterface dialog, int which) {
-                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECEIVE_SMS}, MY_PERMISSIONS_REQUEST_READ_SMS);
-                        }
-                    });
-                    AlertDialog alert = alertBuilder.create();
-                    alert.show();
-
-                } else {
-                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECEIVE_SMS}, MY_PERMISSIONS_REQUEST_READ_SMS);
-                }
-                return false;
-            } else {
-                return true;
-            }
-        } else {
-            return true;
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST_READ_SMS:
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(MainActivity.this, "Permission granted",Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(MainActivity.this, "Permission denied",Toast.LENGTH_SHORT).show();
-                }
-                break;
-        }
-    }*/
-
-    /**
-     * Optional informative alert dialog to explain the user why the app needs the Read/Send SMS permission
-     */
     private void showRequestPermissionsInfoAlertDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(R.string.permission_alert_dialog_title);
@@ -178,12 +126,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         builder.show();
     }
 
-    /**
-     * Runtime permission shenanigans
-     */
     private boolean hasReadSmsPermission() {
-        return ContextCompat.checkSelfPermission(MainActivity.this,
-                Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED;
+        return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestReadAndSendSmsPermission() {
@@ -194,4 +138,103 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_SMS}, SMS_PERMISSION_CODE);
     }
 
+    private void getResultsFromApi() {
+        if (!isGooglePlayServicesAvailable()) {
+            acquireGooglePlayServices();
+        } else if (mCredential.getSelectedAccountName() == null) {
+            chooseAccount();
+        } else if (! Util.isDeviceOnline(MainActivity.this)) {
+            Toast.makeText(MainActivity.this,"No network connection available.",Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    boolean isGooglePlayServicesAvailable() {
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        final int connectionStatusCode = apiAvailability.isGooglePlayServicesAvailable(this);
+        return connectionStatusCode == ConnectionResult.SUCCESS;
+    }
+
+    void acquireGooglePlayServices() {
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        final int connectionStatusCode = apiAvailability.isGooglePlayServicesAvailable(this);
+        if (apiAvailability.isUserResolvableError(connectionStatusCode)) {
+            showGooglePlayServicesAvailabilityErrorDialog(connectionStatusCode);
+        }
+    }
+
+    void showGooglePlayServicesAvailabilityErrorDialog(final int connectionStatusCode) {
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        Dialog dialog = apiAvailability.getErrorDialog(this, connectionStatusCode, REQUEST_GOOGLE_PLAY_SERVICES);
+        dialog.show();
+    }
+
+    @AfterPermissionGranted(REQUEST_PERMISSION_GET_ACCOUNTS)
+    private void chooseAccount() {
+        if (EasyPermissions.hasPermissions(this, Manifest.permission.GET_ACCOUNTS)) {
+            String accountName = PreferenceManager.getDefaultSharedPreferences(MainActivity.this)
+                    .getString(PREF_ACCOUNT_NAME, null);
+            if (accountName != null) {
+                mCredential.setSelectedAccountName(accountName);
+                getResultsFromApi();
+            } else {
+                // Start a dialog from which the user can choose an account
+                startActivityForResult(mCredential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
+            }
+        } else {
+            // Request the GET_ACCOUNTS permission via a user dialog
+            EasyPermissions.requestPermissions(
+                    this,
+                    "This app needs to access your Google account (via Contacts).",
+                    REQUEST_PERMISSION_GET_ACCOUNTS,
+                    Manifest.permission.GET_ACCOUNTS);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        switch(requestCode) {
+            case REQUEST_GOOGLE_PLAY_SERVICES:
+                if (resultCode != RESULT_OK) {
+                    Toast.makeText(MainActivity.this,
+                            "This app requires Google Play Services. Please install Google Play Services on your device and relaunch this app.",
+                            Toast.LENGTH_SHORT).show();
+                } else {
+                    getResultsFromApi();
+                }
+                break;
+            case REQUEST_ACCOUNT_PICKER:
+                if (resultCode == RESULT_OK && data != null && data.getExtras() != null) {
+                    String accountName = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+                    if (accountName != null) {
+                        SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+                        SharedPreferences.Editor editor = settings.edit();
+                        editor.putString(PREF_ACCOUNT_NAME, accountName);
+                        editor.apply();
+                        mCredential.setSelectedAccountName(accountName);
+                        getResultsFromApi();
+                    }
+                }
+                break;
+            case REQUEST_AUTHORIZATION:
+                if (resultCode == RESULT_OK) {
+                    getResultsFromApi();
+                }
+                break;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
+    }
+
+    @Override
+    public void onPermissionsGranted(int requestCode, List<String> list) {
+    }
+
+    @Override
+    public void onPermissionsDenied(int requestCode, List<String> list) {
+    }
 }

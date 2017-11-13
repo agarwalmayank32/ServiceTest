@@ -4,4 +4,7 @@
     <string name="action_ok">OK</string>
     <string name="permission_alert_dialog_title">Requesting SMS permission</string>
     <string name="permission_dialog_message">The app will now request your permission to send and read SMS related services.</string>
+    <string name="start_service_text">Start Service</string>
+    <string name="stop_service_text">Stop Service</string>
+    <string name="click_on_the_buttons_to_start_stop_using_the_service">Click on the buttons to start/stop using the service</string>
 </resources>

@@ -10,6 +10,10 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+
     <uses-permission-sdk-23 android:name="android.permission.WAKE_LOCK" />
     <uses-permission-sdk-23 android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -36,18 +40,20 @@
         <activity android:name=".TestActivity"/>
 
         <receiver
-            android:name=".AlarmReciever1"
+            android:name=".AlarmReceiver1"
             android:enabled="true" />
         <service android:name=".SchedulingService1" />
+
         <receiver
-            android:name=".BootReciever1"
+            android:name=".BootReciever"
             android:enabled="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".IncomingSms" android:enabled="true" class=".IncomingSms">
+        <receiver android:name=".IncomingSms" android:enabled="true" class=".IncomingSms"
+            android:permission="android.permission.BROADCAST_SMS">
             <intent-filter android:priority="1000">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>

@@ -4,14 +4,14 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-public class BootReciever1 extends BroadcastReceiver {
+public class BootReciever extends BroadcastReceiver {
 
-    AlarmReciever1 alarm = new AlarmReciever1();
+    private AlarmReceiver1 alarm = new AlarmReceiver1();
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (intent.getAction().equals("android.intent.action.BOOT_COMPLETED"))
-        {
+        //noinspection ConstantConditions
+        if (intent.getAction().equals("android.intent.action.BOOT_COMPLETED")) {
             alarm.setAlarm(context);
         }
     }
