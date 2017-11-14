@@ -2,18 +2,24 @@ package info.mayankag.servicetest;
 
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.preference.PreferenceManager;
 import android.support.v4.app.NotificationCompat;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import info.mayankag.servicetest.DB.NotificationDBContentProvider;
+import info.mayankag.servicetest.DB.NotificationDBContract;
 
 class Util {
     static String NOTIFICATION_ID = "notification_id";
@@ -36,8 +42,9 @@ class Util {
 
         //noinspection deprecation
         NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(context)
-                .setSmallIcon(R.drawable.regular)
-                .setLargeIcon(BitmapFactory.decodeResource(context.getResources(),R.drawable.regular))
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setLargeIcon(BitmapFactory.decodeResource(context.getResources(),
+                        R.mipmap.ic_launcher))
                 .setContentTitle("Event found : Set Event ?")
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(msg))
                 .setContentText(msg);
@@ -53,7 +60,7 @@ class Util {
         editor.apply();
     }
 
-    static String getResult(String object)
+    static String getResult(String object, Context context)
     {
         try
         {
@@ -95,8 +102,28 @@ class Util {
                         message+= "\n"+location;
                     }
 
-                    return message;
+                    String[] columns ={"TITLE", "DATETIME"};
+                    Cursor cursor = context.getContentResolver().query(NotificationDBContentProvider.CONTENT_URI, columns, "TITLE=? and DATETIME=?", new String[] { event,  dateTime}, null, null);
 
+                    assert cursor != null;
+                    if (!cursor.moveToFirst()) {
+                        cursor.close();
+
+                        ContentValues contentValues = new ContentValues();
+                        contentValues.put(NotificationDBContract.NOTIFICATION_ENTRY.COLUMN_TITLE,event);
+                        contentValues.put(NotificationDBContract.NOTIFICATION_ENTRY.COLUMN_DATETIME,dateTime);
+                        context.getContentResolver().insert(NotificationDBContentProvider.CONTENT_URI,contentValues);
+
+                        return message;
+                    }
+                    else
+                    {
+                        Log.d("check","Data Already Present in SQLITE");
+                    }
+
+                    cursor.close();
+
+                    return null;
                 }
             }
         }

@@ -1,0 +1,38 @@
+[
+	{
+		"value":"dear"
+	},
+	{
+        "value":"credit"
+    },
+    {
+        "value":"debit"
+    },
+    {
+        "value":"book now"
+    },
+    {
+        "value":"apply today"
+    },
+    {
+        "value":"download today"
+    },
+    {
+        "value":"download now"
+    },
+    {
+        "value":"apply now"
+    },
+    {
+        "value":"promocode"
+    },
+    {
+        "value":"otp"
+    },
+    {
+        "value":"dispatched"
+    },
+    {
+        "value":"order"
+	}
+]

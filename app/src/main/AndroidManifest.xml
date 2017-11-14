@@ -59,6 +59,12 @@
             </intent-filter>
         </receiver>
 
+        <provider
+            android:name=".DB.NotificationDBContentProvider"
+            android:authorities="info.mayankag.servicetest.DB.NotificationDBContentProvider"
+            android:exported="true"
+            android:multiprocess="true" />
+
     </application>
 
 </manifest>

@@ -5,6 +5,7 @@ import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.AssetManager;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -21,12 +22,17 @@ import com.google.api.services.gmail.GmailScopes;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -45,6 +51,10 @@ public class SchedulingService1 extends IntentService{
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[ ] SCOPES = { GmailScopes.GMAIL_LABELS, GmailScopes.GMAIL_READONLY};
     Context context;
+
+    ArrayList<String> excludedWords = new ArrayList<>();
+
+    int flag = 0;
 
     @Override
     protected void onHandleIntent(Intent intent) {
@@ -73,7 +83,7 @@ public class SchedulingService1 extends IntentService{
         private com.google.api.services.gmail.Gmail mService = null;
         private Exception mLastError = null;
 
-        String url = "https://api.wit.ai/message?v=11/11/2017&q=";
+        String url = "https://api.wit.ai/message?v=";
 
         final OkHttpClient client = new OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
@@ -91,6 +101,13 @@ public class SchedulingService1 extends IntentService{
 
         @Override
         protected void onPreExecute() {
+
+            Calendar c = Calendar.getInstance();
+            @SuppressLint("SimpleDateFormat")
+            SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy");
+            String date = df.format(c.getTime());
+            url+= date+"&q=";
+            parseJSON();
         }
 
         @Override
@@ -121,7 +138,7 @@ public class SchedulingService1 extends IntentService{
         protected void onCancelled() {
             if (mLastError != null) {
                 //Toast.makeText(MainActivity.this,"The following error occurred:\n" + mLastError.getMessage(),Toast.LENGTH_SHORT).show();
-                Log.d(" errs","The following error occurred:\n" + mLastError.getMessage());
+                Log.d(" errs","The following error occurred:\n" + mLastError.toString());
             } else {
                 Toast.makeText(context, "Request cancelled.", Toast.LENGTH_SHORT).show();
             }
@@ -153,43 +170,112 @@ public class SchedulingService1 extends IntentService{
                             byte[] bodyBytes = Base64.decodeBase64(message2.getPayload().getParts().get(0).getBody().getData().trim()); // get body
                             String body = new String(bodyBytes, "UTF-8");
 
-                            Request.Builder builder = new Request.Builder();
-                            builder.url(url+body).header("Authorization" , "Bearer 6PUGR2FU2TVKLF7MGAGITU6KWN4XLT52");
-                            Request request = builder.build();
-
-                            try {
-                                Response response = client.newCall(request).execute();
-                                //noinspection ConstantConditions
-
-                                String object = response.body().string();
-
-                                Log.d("errsss",object);
-
-                                if(object != null)
-                                {
-                                    messageList.add(Util.getResult(object));
-                                }
-                                else
-                                {
-                                    messageList.add("Network Slow Try Again");
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-
-                                Log.d("errss",e.toString());
+                            if(body.contains("/"))
+                            {
+                                //noinspection ResultOfMethodCallIgnored
+                                body.replace("/","\"/");
                             }
 
-                            //messageList.add(body);
-                            Log.d("bb", body);
+                            body = body.replaceAll("\\s{2,}", " ").trim();
+
+                            for (String excludedWord : excludedWords) {
+                                if (body.toLowerCase().contains(excludedWord)) {
+                                    flag++;
+                                    break;
+                                }
+                            }
+
+                            if(flag == 0) {
+                                Request.Builder builder = new Request.Builder();
+                                builder.url(url + body).header("Authorization", "Bearer 6PUGR2FU2TVKLF7MGAGITU6KWN4XLT52");
+                                Request request = builder.build();
+
+                                try {
+                                    Response response = client.newCall(request).execute();
+                                    //noinspection ConstantConditions
+                                    String object = response.body().string();
+
+                                    Log.d("service", object);
+
+                                    if (object != null) {
+                                        String resultMessage = Util.getResult(object, context);
+                                        if (resultMessage != null) {
+                                            messageList.add(resultMessage);
+                                        }
+                                    } else {
+                                        messageList.add("Network Slow Try Again");
+                                    }
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+
+                                    Log.d("service", e.toString());
+                                }
+                                Log.d("bb", body);
+                            }
+                            else {
+                                Log.d("error","Restricted Words");
+                            }
                         }
                     }
+                    else
+                    {
+                        Log.d("service","No messages");
+                    }
+                }
+                else
+                {
+                    Log.d("service","No Total Messages");
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
 
-                Log.d("errsss",e.toString());
+                Log.d("service",e.toString());
             }
             return messageList;
         }
     }
+
+    private String getJSONString(Context context)
+    {
+        StringBuilder str = new StringBuilder();
+        try
+        {
+            AssetManager assetManager = context.getAssets();
+            InputStream in = assetManager.open("json.txt");
+            InputStreamReader isr = new InputStreamReader(in);
+            char [] inputBuffer = new char[1000];
+
+            int charRead;
+            while((charRead = isr.read(inputBuffer))>0)
+            {
+                String readString = String.copyValueOf(inputBuffer,0,charRead);
+                str.append(readString);
+            }
+        }
+        catch(IOException ioe)
+        {
+            ioe.printStackTrace();
+        }
+
+        return str.toString();
+    }
+
+    public void parseJSON()
+    {
+        try {
+            JSONArray json = new JSONArray(getJSONString(context));
+
+            for(int i=0;i<json.length();i++)
+            {
+                JSONObject jsonObject = json.getJSONObject(i);
+                excludedWords.add(jsonObject.getString("value"));
+            }
+
+
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
 }

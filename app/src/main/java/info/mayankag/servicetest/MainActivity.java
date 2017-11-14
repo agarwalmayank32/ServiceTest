@@ -2,12 +2,14 @@ package info.mayankag.servicetest;
 
 import android.Manifest;
 import android.accounts.AccountManager;
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -20,13 +22,23 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.api.client.googleapis.extensions.android.gms.auth.GooglePlayServicesAvailabilityIOException;
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.ExponentialBackOff;
 import com.google.api.services.gmail.GmailScopes;
+import com.google.api.services.gmail.model.Label;
+import com.google.api.services.gmail.model.ListLabelsResponse;
 import com.tuenti.smsradar.Sms;
 import com.tuenti.smsradar.SmsListener;
 import com.tuenti.smsradar.SmsRadar;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -139,14 +151,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void getResultsFromApi() {
-        if (!isGooglePlayServicesAvailable()) {
+        if (! isGooglePlayServicesAvailable()) {
             acquireGooglePlayServices();
         } else if (mCredential.getSelectedAccountName() == null) {
             chooseAccount();
         } else if (! Util.isDeviceOnline(MainActivity.this)) {
             Toast.makeText(MainActivity.this,"No network connection available.",Toast.LENGTH_SHORT).show();
-        }
-        else {
+        } else {
+            new MakeRequestTask(mCredential).execute();
             Toast.makeText(MainActivity.this,"Email Service Started",Toast.LENGTH_SHORT).show();
         }
     }
@@ -240,4 +252,71 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onPermissionsDenied(int requestCode, List<String> list) {
     }
+
+    @SuppressLint("StaticFieldLeak")
+    private class MakeRequestTask extends AsyncTask<Void, Void, List<String>> {
+        private com.google.api.services.gmail.Gmail mService = null;
+        private Exception mLastError = null;
+
+        MakeRequestTask(GoogleAccountCredential credential) {
+            HttpTransport transport = AndroidHttp.newCompatibleTransport();
+            JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
+            mService = new com.google.api.services.gmail.Gmail.Builder(
+                    transport, jsonFactory, credential)
+                    .setApplicationName("Gmail API Android Quickstart")
+                    .build();
+        }
+
+        /**
+         * Background task to call Gmail API.
+         * @param params no parameters needed for this task.
+         */
+        @Override
+        protected List<String> doInBackground(Void... params) {
+            try {
+                return getDataFromApi();
+            } catch (Exception e) {
+                mLastError = e;
+                cancel(true);
+                return null;
+            }
+        }
+
+        private List<String> getDataFromApi() throws IOException {
+            // Get the labels in the user's account.
+            String user = "me";
+
+            List<String> labels = new ArrayList<>();
+
+            ListLabelsResponse listResponse = mService.users().labels().list(user).execute();
+            for (Label label : listResponse.getLabels()) {
+                labels.add(label.getName());
+            }
+            return labels;
+        }
+        @Override
+        protected void onPreExecute() {
+        }
+
+        @Override
+        protected void onPostExecute(List<String> output) {
+        }
+
+        @Override
+        protected void onCancelled() {
+            if (mLastError != null) {
+                if (mLastError instanceof GooglePlayServicesAvailabilityIOException) {
+                    showGooglePlayServicesAvailabilityErrorDialog(((GooglePlayServicesAvailabilityIOException) mLastError)
+                            .getConnectionStatusCode());
+                } else if (mLastError instanceof UserRecoverableAuthIOException) {
+                    startActivityForResult(((UserRecoverableAuthIOException) mLastError).getIntent(), MainActivity.REQUEST_AUTHORIZATION);
+                } else {
+                    Log.d( "errs","The following error occurred:" + mLastError.getMessage());
+                }
+            } else {
+                Log.d("errs","Request cancelled.");
+            }
+        }
+    }
+
 }
